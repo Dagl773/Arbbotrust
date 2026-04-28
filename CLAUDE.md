@@ -41,8 +41,8 @@ Pin these. Do not silently drift to alternatives.
 
 | Layer | Choice | Notes |
 |---|---|---|
-| Language | Rust ≥ 1.85, edition 2024 | MSRV is 1.85 to match alloy. |
-| EVM client lib | **alloy-rs ≥ 1.0** | NOT ethers-rs. ethers-rs is deprecated; alloy is 35–60% faster on U256 arithmetic and provides the `sol!` macro for compile-time Solidity bindings. |
+| Language | Rust ≥ 1.91, edition 2024 | MSRV is 1.91 to match alloy 2.x and revm 38.x (bumped from 1.85 when those crates raised theirs). |
+| EVM client lib | **alloy-rs ≥ 2.0** | NOT ethers-rs. ethers-rs is deprecated; alloy is 35–60% faster on U256 arithmetic and provides the `sol!` macro for compile-time Solidity bindings. |
 | MEV / bundle submission | `alloy-mev` | Replaces `ethers-flashbots`. Used minimally on Arbitrum. |
 | EVM simulator | `revm` (latest stable) | Forking simulator for pre-flight profit checks. Sub-50ms simulations are the standard. |
 | Async runtime | `tokio` (full features) | |

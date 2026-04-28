@@ -1,0 +1,104 @@
+[package]
+name = "arbi-bot"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.91"
+description = "Rust MEV bot for Aave V3 flash-loan arbitrage on Arbitrum One"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[[bin]]
+name = "arbi-bot"
+path = "src/main.rs"
+
+[dependencies]
+# === EVM client / sol! bindings ===
+alloy = { version = "2", features = [
+    "full",
+    "json-rpc",
+    "rpc-types",
+    "rpc-types-eth",
+    "providers",
+    "provider-ws",
+    "signers",
+    "signer-local",
+    "node-bindings",
+    "contract",
+    "sol-types",
+    "json",
+    "k256",
+    "pubsub",
+] }
+alloy-sol-types = "1"
+alloy-mev = "1"
+
+# === EVM simulator ===
+revm = { version = "38", features = ["std", "secp256k1", "portable"] }
+
+# === Async runtime ===
+tokio = { version = "1", features = ["full"] }
+tokio-stream = "0.1"
+futures = "0.3"
+async-trait = "0.1"
+
+# === Logging ===
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }
+
+# === Error handling ===
+anyhow = "1"
+thiserror = "2"
+
+# === Config / serde ===
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.9"
+dotenvy = "0.15"
+
+# === HTTP fallback ===
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+
+# === CLI ===
+clap = { version = "4", features = ["derive", "env"] }
+
+# === Misc ===
+parking_lot = "0.12"
+hex = "0.4"
+
+[dev-dependencies]
+proptest = "1"
+rand = "0.9"
+tempfile = "3"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+debug = "line-tables-only"
+
+[profile.dev]
+opt-level = 1
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+# Pedantic flags too many cosmetic items in math-heavy code (doc backticks
+# around "10_000" and friends). Keep the substantive subset only.
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+similar_names = "allow"
+doc_markdown = "allow"
+cast_possible_truncation = "allow"
+cast_possible_wrap = "allow"
+cast_precision_loss = "allow"
+cast_sign_loss = "allow"
+# Substantive pedantic checks worth keeping
+needless_pass_by_value = "warn"
+inefficient_to_string = "warn"
+manual_string_new = "warn"
+match_wildcard_for_single_variants = "warn"
+redundant_closure_for_method_calls = "warn"
+unnecessary_wraps = "warn"
