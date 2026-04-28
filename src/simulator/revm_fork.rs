@@ -168,6 +168,8 @@ mod tests {
     #[test]
     fn config_defaults_to_latest() {
         let cfg = ForkSimConfig::new("https://example.test");
-        assert!(matches!(cfg.block, BlockId::Number(_) | BlockId::Hash(_)) || cfg.block.is_latest());
+        assert!(
+            matches!(cfg.block, BlockId::Number(_) | BlockId::Hash(_)) || cfg.block.is_latest()
+        );
     }
 }
