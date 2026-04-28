@@ -1,25 +1,25 @@
 //! `arbi-bot` — Aave V3 flash-loan arbitrage on Arbitrum One.
 //!
-//! Entry point: parses CLI args, loads config, initialises tracing, then hands
-//! off to [`runtime::run`]. See `CLAUDE.md` for the full architecture.
+//! Entry point: parses CLI args, loads config, initialises tracing, then runs
+//! the collectors → strategy → executor pipeline. See `CLAUDE.md` for the
+//! full architecture.
 
-// Removed in Phase 9 once collectors → strategy → executor are wired end-to-end.
-#![allow(dead_code)]
+use std::path::PathBuf;
+use std::sync::Arc;
 
 use anyhow::{Context, Result, bail};
+use arbi_bot::{
+    collectors::{Collector, block::BlockCollector, pool_event::PoolEventCollector},
+    config::{Config, Mode, Network},
+    executor::{ExecutorService, GateParams, LiveSender},
+    simulator::revm_fork::{ForkSim, ForkSimConfig},
+    strategy::{
+        StrategyRunner, pair_arb::PairArbDetector, pool_registry::PoolRegistry,
+        triangular::TriangularDetector,
+    },
+    types, util,
+};
 use clap::Parser;
-
-mod bindings;
-mod collectors;
-mod config;
-mod executor;
-mod math;
-mod simulator;
-mod strategy;
-mod types;
-mod util;
-
-use config::{Config, Mode, Network};
 
 #[derive(Debug, Parser)]
 #[command(name = "arbi-bot", version, about = "Aave V3 flash-loan arb bot")]
@@ -34,11 +34,14 @@ struct Cli {
 
     /// Optional path to a TOML config file with non-secret defaults.
     #[arg(long)]
-    config: Option<std::path::PathBuf>,
+    config: Option<PathBuf>,
+
+    /// Path to the pool registry JSON. Defaults to `data/pools.json`.
+    #[arg(long, default_value = "data/pools.json")]
+    pools: PathBuf,
 }
 
 fn main() -> Result<()> {
-    // Best-effort .env load. Missing file is fine; missing required vars is not.
     let _ = dotenvy::dotenv();
 
     let cli = Cli::parse();
@@ -62,7 +65,7 @@ fn main() -> Result<()> {
             network = ?config.network,
             "arbi-bot starting"
         );
-        run(config).await
+        run(config, cli.pools).await
     })
 }
 
@@ -88,11 +91,95 @@ fn enforce_live_safety(config: &Config, confirm_live: bool) -> Result<()> {
     Ok(())
 }
 
-/// Runtime stub: collectors → strategy → executor pipeline lands in Phase 9.
-async fn run(_config: Config) -> Result<()> {
-    tracing::warn!(
-        target: "boot",
-        "runtime pipeline not yet wired; this build is the initial skeleton"
+async fn run(config: Config, pools_path: PathBuf) -> Result<()> {
+    let registry = PoolRegistry::from_json_file(&pools_path)
+        .with_context(|| format!("load pool registry from {}", pools_path.display()))?;
+    let tracked: Vec<_> = registry.iter().map(|(a, _)| *a).collect();
+    tracing::info!(target: "boot", pools = tracked.len(), "loaded pool registry");
+
+    let (event_tx, event_rx) = tokio::sync::mpsc::channel::<types::Event>(1024);
+    let (action_tx, action_rx) = tokio::sync::mpsc::channel::<types::Action>(256);
+
+    // Spawn collectors.
+    let block_collector: Box<dyn Collector> =
+        Box::new(BlockCollector::new(config.endpoints.wss_url.clone()));
+    let pool_collector: Box<dyn Collector> = Box::new(PoolEventCollector::new(
+        config.endpoints.wss_url.clone(),
+        tracked,
+    ));
+    let block_handle = tokio::spawn({
+        let tx = event_tx.clone();
+        async move { block_collector.run(tx).await }
+    });
+    let pool_handle = tokio::spawn({
+        let tx = event_tx.clone();
+        async move { pool_collector.run(tx).await }
+    });
+    drop(event_tx); // strategy gets EOF when both collectors finish
+
+    // Spawn strategy.
+    let strategy_runner = StrategyRunner::new(
+        registry,
+        vec![
+            Box::new(PairArbDetector::default()),
+            Box::new(TriangularDetector::default()),
+        ],
     );
+    let strategy_handle =
+        tokio::spawn(async move { strategy_runner.run(event_rx, action_tx).await });
+
+    // Build simulator + (optional) sender.
+    let sim = match ForkSim::new(
+        ForkSimConfig::new(config.endpoints.http_url.clone()),
+        config.addresses.uniswap_v3_quoter_v2,
+    )
+    .await
+    {
+        Ok(s) => Some(Arc::new(s)),
+        Err(err) => {
+            tracing::warn!(target: "boot", ?err, "simulator unavailable; running without pre-flight");
+            None
+        }
+    };
+    let sender = if matches!(config.mode, Mode::Live) {
+        let pk = config
+            .executor_private_key
+            .as_deref()
+            .ok_or_else(|| anyhow::anyhow!("missing EXECUTOR_PRIVATE_KEY in live mode"))?;
+        let s = LiveSender::new(&config.endpoints.http_url, pk, config.max_gas_price_gwei).await?;
+        Some(Arc::new(s))
+    } else {
+        None
+    };
+
+    let gate = GateParams {
+        max_gas_price_wei: u128::from(config.max_gas_price_gwei) * 1_000_000_000,
+        ..Default::default()
+    };
+
+    let executor_service = ExecutorService {
+        mode: config.mode,
+        executor_address: config.addresses.flash_executor,
+        sim,
+        sender,
+        gate,
+    };
+    let executor_handle = tokio::spawn(async move { executor_service.run(action_rx).await });
+
+    // Wait for any task to exit; bot is healthy as long as all are running.
+    tokio::select! {
+        r = block_handle => log_exit("block collector", r),
+        r = pool_handle => log_exit("pool collector", r),
+        r = strategy_handle => log_exit("strategy", r),
+        r = executor_handle => log_exit("executor", r),
+    }
     Ok(())
+}
+
+fn log_exit(name: &str, r: Result<Result<()>, tokio::task::JoinError>) {
+    match r {
+        Ok(Ok(())) => tracing::info!(target: "boot", task = name, "task ended cleanly"),
+        Ok(Err(err)) => tracing::error!(target: "boot", task = name, ?err, "task failed"),
+        Err(err) => tracing::error!(target: "boot", task = name, ?err, "task join error"),
+    }
 }

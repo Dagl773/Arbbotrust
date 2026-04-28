@@ -171,4 +171,18 @@ mod tests {
         assert_eq!(reg.pools_for_pair(t1, t0), &[pool]);
         assert!(reg.get(pool).is_some());
     }
+
+    /// Sanity-check that the checked-in `data/pools.json` parses cleanly with
+    /// every DexKind variant supported by the loader.
+    #[test]
+    fn checked_in_pools_json_parses() {
+        let path = std::path::Path::new("data/pools.json");
+        let reg = PoolRegistry::from_json_file(path).expect("data/pools.json must parse");
+        assert!(reg.len() >= 5, "seed registry has at least 5 pools");
+        let dex_kinds: std::collections::HashSet<_> =
+            reg.iter().map(|(_, s)| s.entry.dex).collect();
+        assert!(dex_kinds.contains(&DexKind::UniV2));
+        assert!(dex_kinds.contains(&DexKind::UniV3));
+        assert!(dex_kinds.contains(&DexKind::CamelotV2));
+    }
 }

@@ -1,0 +1,57 @@
+[
+  {
+    "_note": "Seed registry for Arbitrum One. Verify every address against Arbiscan before live use (CLAUDE.md §11 / §14.7). Camelot V2 fee is dynamic — bot reads stableFee()/volatileFee() at registry load.",
+    "address": "0xC31E54c7a869B9FcBEcc14363CF510d1c41fa443",
+    "_dex_note": "WETH/USDC.e Uniswap V3 0.05%",
+    "dex": "uni_v3",
+    "token0": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+    "token1": "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
+    "fee": 500,
+    "fee_bps": 30
+  },
+  {
+    "address": "0xC6962004f452bE9203591991D15f6b388e09E8D0",
+    "_dex_note": "WETH/USDC (native) Uniswap V3 0.05%",
+    "dex": "uni_v3",
+    "token0": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+    "token1": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+    "fee": 500,
+    "fee_bps": 30
+  },
+  {
+    "address": "0xC6F780497A95e246EB9449f5e4770916DCd6396A",
+    "_dex_note": "ARB/WETH Uniswap V3 0.05%",
+    "dex": "uni_v3",
+    "token0": "0x912CE59144191C1204E64559FE8253a0e49E6548",
+    "token1": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+    "fee": 500,
+    "fee_bps": 30
+  },
+  {
+    "address": "0x641C00A822e8b671738d32a431a4Fb6074E5c79d",
+    "_dex_note": "WETH/USDT Uniswap V3 0.05%",
+    "dex": "uni_v3",
+    "token0": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+    "token1": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
+    "fee": 500,
+    "fee_bps": 30
+  },
+  {
+    "address": "0x57b85FEf094e10b5eeCDF350Af688299E9553378",
+    "_dex_note": "WETH/ARB Sushi V2",
+    "dex": "uni_v2",
+    "token0": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+    "token1": "0x912CE59144191C1204E64559FE8253a0e49E6548",
+    "fee": 0,
+    "fee_bps": 30
+  },
+  {
+    "address": "0xa6f8f0e16c1Cb14ae35DEbC9D6F25E4063879aC4",
+    "_dex_note": "WETH/ARB Camelot V2 (volatile)",
+    "dex": "camelot_v2",
+    "token0": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+    "token1": "0x912CE59144191C1204E64559FE8253a0e49E6548",
+    "fee": 0,
+    "fee_bps": 30
+  }
+]

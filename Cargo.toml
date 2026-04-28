@@ -7,9 +7,17 @@ description = "Rust MEV bot for Aave V3 flash-loan arbitrage on Arbitrum One"
 license = "MIT OR Apache-2.0"
 publish = false
 
+[lib]
+name = "arbi_bot"
+path = "src/lib.rs"
+
 [[bin]]
 name = "arbi-bot"
 path = "src/main.rs"
+
+[[test]]
+name = "pair_arb_fork"
+path = "tests/integration/pair_arb_fork.rs"
 
 [dependencies]
 # === EVM client / sol! bindings ===
