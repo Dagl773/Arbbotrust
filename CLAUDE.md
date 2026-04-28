@@ -227,7 +227,7 @@ Closed-form (derived from the constant-product formula). Reference implementatio
 
 ### Uniswap V3
 
-Tick-based math is painful off-chain (tick bitmap + crossing logic). **v1 strategy: REVM-backed quoter.** We fork at the latest block and call `Quoter.quoteExactInputSingle()` inside REVM. Slower per-quote (~5–20ms) but correct.
+Tick-based math is painful off-chain (tick bitmap + crossing logic). **v1 strategy: live `eth_call` against `IQuoterV2.quoteExactInputSingle()`.** This gives identical correctness to a REVM fork (the live RPC's "latest" block state IS the fork) at the cost of per-quote network latency (~10–30ms on Chainstack). Suitable for our scan rate; revisit if it becomes a profiled bottleneck (see §20).
 
 Move to native off-chain V3 math only if the simulator becomes the bottleneck on a profiled run. Don't preoptimize.
 
@@ -443,7 +443,8 @@ These are intentionally not solved yet. Don't solve them speculatively.
 - **Curve / Balancer integration** — defer until V2/V3 paths are proven net-profitable for ≥ 1 month.
 - **Multisig ownership** for `FlashExecutor` — single EOA in v1; revisit when contract holds > $1K of accumulated profit.
 - **Postgres trade log** — start with append-only JSONL (`data/trades.jsonl`); migrate when querying becomes painful.
-- **Native off-chain V3 tick math** — keep REVM-backed v1; revisit when profiling shows the simulator as the bottleneck.
+- **Native off-chain V3 tick math** — keep `eth_call`-backed v1; revisit when profiling shows the simulator as the bottleneck.
+- **In-process REVM forking simulator** — v1 uses `eth_call` against the live HTTP RPC for V3 quotes and executor pre-flight (semantically identical to a REVM fork against `latest`). Switching to a `revm::CacheDB<AlloyDB>` in-process simulator buys lower per-quote latency but introduces non-trivial revm-type-system plumbing; defer until profiling shows network round-trips as the dominant scan cost.
 - **Path length > 3** for triangular arb — keep depth ≤ 3 until v1 is profitable.
 - **Cross-chain expansion to Base** — keep Arbitrum-only until v1 is stable; Base port is mostly RPC + address swaps if and when.
 
