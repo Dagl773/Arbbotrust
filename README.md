@@ -28,7 +28,9 @@ tests/integration/  Anvil-fork integration tests (require ARBITRUM_HTTP_URL)
 ```bash
 cp .env.example .env
 # Fill in ARBITRUM_WSS_URL, ARBITRUM_HTTP_URL, EXECUTOR_PRIVATE_KEY, EXECUTOR_ADDRESS
-./scripts/verify_setup.sh   # sanity-checks env + RPC + balance
+
+./scripts/install_contracts.sh   # rehydrate Foundry deps (lib/ is gitignored)
+./scripts/verify_setup.sh        # sanity-checks env + RPC + balance
 ```
 
 ## Build, run, test
