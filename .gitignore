@@ -1,0 +1,25 @@
+# Rust
+/target/
+Cargo.lock.bak
+
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+
+# Runtime caches
+data/cache/
+data/dry_run.jsonl
+data/trades.jsonl
+
+# Foundry
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+contracts/lib/
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store

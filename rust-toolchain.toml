@@ -1,0 +1,6 @@
+[toolchain]
+# alloy 2.x and revm 38.x both require >= 1.91; bumped from CLAUDE.md's
+# original 1.85 (see CLAUDE.md §3 update note).
+channel = "1.91"
+components = ["rustfmt", "clippy"]
+profile = "minimal"
