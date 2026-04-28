@@ -1,13 +1,13 @@
-//! `Opportunity` → `executeArbitrage` calldata. Phase 8 implementation.
+//! `Opportunity` → `executeArbitrage` calldata.
 
-use alloy::primitives::Bytes;
-use alloy::sol_types::SolValue;
+use alloy::primitives::{Address, Bytes, U256};
+use alloy::sol_types::{SolCall, SolValue};
 
-use crate::bindings::flash_executor::{ArbPath, Hop as SolHop};
+use crate::bindings::flash_executor::{ArbPath, Hop as SolHop, IFlashExecutor};
 use crate::types::Opportunity;
 
-/// ABI-encode the off-chain `Opportunity` into the `bytes path` parameter
-/// expected by `FlashExecutor.executeArbitrage`.
+/// ABI-encode the off-chain [`Opportunity`] hops into the `bytes path`
+/// parameter expected by `FlashExecutor.executeArbitrage`.
 pub fn encode_path(opp: &Opportunity) -> Bytes {
     let hops: Vec<SolHop> = opp
         .hops
@@ -24,15 +24,31 @@ pub fn encode_path(opp: &Opportunity) -> Bytes {
     Bytes::from(path.abi_encode())
 }
 
+/// Build the full `executeArbitrage(asset, amount, path, minProfit)`
+/// calldata for the deployed `FlashExecutor`.
+pub fn build_execute_calldata(
+    opp: &Opportunity,
+    min_profit: U256,
+    _executor: Address, // future: route through a contract handle
+) -> Bytes {
+    let path = encode_path(opp);
+    let call = IFlashExecutor::executeArbitrageCall {
+        asset: opp.asset,
+        amount: opp.amount_in,
+        path,
+        minProfit: min_profit,
+    };
+    Bytes::from(call.abi_encode())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::types::{DexKind, Hop};
-    use alloy::primitives::{U256, address};
+    use alloy::primitives::address;
 
-    #[test]
-    fn encode_round_trips() {
-        let opp = Opportunity {
+    fn make_opp() -> Opportunity {
+        Opportunity {
             asset: address!("0000000000000000000000000000000000000001"),
             amount_in: U256::from(1_000_000u64),
             hops: vec![
@@ -53,7 +69,12 @@ mod tests {
             ],
             expected_profit: U256::from(123u64),
             block_number: 42,
-        };
+        }
+    }
+
+    #[test]
+    fn encode_path_round_trips() {
+        let opp = make_opp();
         let bytes = encode_path(&opp);
         let decoded = ArbPath::abi_decode(&bytes).unwrap();
         assert_eq!(decoded.hops.len(), 2);
@@ -62,5 +83,15 @@ mod tests {
             decoded.hops[1].fee,
             alloy::primitives::aliases::U24::from(3000u32)
         );
+    }
+
+    #[test]
+    fn execute_calldata_decodes_to_call() {
+        let opp = make_opp();
+        let cd = build_execute_calldata(&opp, U256::from(50u64), Address::ZERO);
+        // First 4 bytes: function selector for executeArbitrage(address,uint256,bytes,uint256).
+        assert!(cd.len() >= 4);
+        let selector = IFlashExecutor::executeArbitrageCall::SELECTOR;
+        assert_eq!(&cd[0..4], &selector);
     }
 }
